@@ -1,0 +1,21 @@
+### RequestVote RPC test
+GRPC localhost:50002/raft.RaftService/RequestVote
+
+{
+  "term": 2,
+  "candidate_id": "candidate1",
+  "last_log_index": 0,
+  "last_log_term": 0
+}
+
+### AppendEntries RPC test
+GRPC localhost:50001/raft.RaftService/AppendEntries
+
+{
+  "term": 1,
+  "leader_id": "leader1",
+  "prev_log_index": 0,
+  "prev_log_term": 0,
+  "entries": [],
+  "leader_commit": 0
+}

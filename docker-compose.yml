@@ -1,0 +1,21 @@
+services:
+  node1:
+    build: .
+    container_name: raft_node1
+    command: ["./app/nodeApp", "1", "/node/config.json"]
+    ports:
+      - "50001:50001"
+
+  node2:
+    build: .
+    container_name: raft_node2
+    command: ["./app/nodeApp", "2", "/node/config.json"]
+    ports:
+      - "50002:50002"
+
+  node3:
+    build: .
+    container_name: raft_node3
+    command: ["./app/nodeApp", "3", "/node/config.json"]
+    ports:
+      - "50003:50003"
