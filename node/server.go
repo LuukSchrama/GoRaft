@@ -65,24 +65,55 @@ func (r *RaftService) AppendEntries(ctx context.Context, req *raft.AppendEntries
 	n := r.node
 
 	if req.Term < n.Term {
-		return &raft.AppendEntriesResponse{Term: r.node.Term, Success: false}, nil
+		return &raft.AppendEntriesResponse{
+			Term:    r.node.Term,
+			Success: false,
+		}, nil
 	}
 
-	r.node.Term = req.Term
-	r.node.State = "Follower"
-	r.node.LastHeartbeat = time.Now()
+	if req.Term > n.Term {
+		n.Term = req.Term
+		n.State = "Follower"
+		n.VotedFor = ""
+	}
+	n.LastHeartbeat = time.Now()
+
+	if req.PrevLogIndex >= 0 {
+		if int(req.PrevLogIndex) >= len(n.Log) || n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
+			return &raft.AppendEntriesResponse{
+				Term:    n.Term,
+				Success: false,
+			}, nil
+		}
+	}
+
+	for i, entry := range FromProtoEntries(req.Entries) {
+		logIndex := int(req.PrevLogIndex) + 1 + i
+		if logIndex < len(n.Log) {
+			if n.Log[logIndex].Term != entry.Term {
+				n.Log = n.Log[:logIndex]
+				n.Log = append(n.Log, entry)
+			}
+		} else {
+			n.Log = append(n.Log, entry)
+		}
+	}
 
 	if len(req.Entries) > 0 {
-		for _, entry := range req.Entries {
-			log.Printf("Node %s appending entry from Leader: %s: %s", n.ID, req.LeaderId, entry.Command)
-			n.Log = append(n.Log, raft.LogEntry{
-				Term:    entry.Term,
-				Command: entry.Command,
-			})
-		}
 		n.persist()
+		log.Printf("Node %s received appendEntries from leader: %v", n.ID, req.LeaderId)
 	} else {
 		log.Printf("Node %s recieved heartbeat from Leader: %s (term %d)", n.ID, req.LeaderId, req.Term)
+	}
+
+	if req.LeaderCommit > n.CommitIndex {
+		lastIndex := int64(len(n.Log) - 1)
+		if req.LeaderCommit < lastIndex {
+			n.CommitIndex = req.LeaderCommit
+		} else {
+			n.CommitIndex = lastIndex
+		}
+		go n.applyLogEntries()
 	}
 
 	return &raft.AppendEntriesResponse{Term: n.Term, Success: true}, nil

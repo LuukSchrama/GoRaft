@@ -17,7 +17,6 @@ type Node struct {
 	ID          string
 	Address     string
 	Term        int64
-	Log         []raft.LogEntry
 	Peers       []Peer
 	PeerClients map[string]raft.RaftServiceClient
 
@@ -26,7 +25,11 @@ type Node struct {
 	ElectionTimeout time.Duration
 	LastHeartbeat   time.Time
 
-	storage *Storage
+	Log         []LogEntry
+	CommitIndex int64
+	LastApplied int64
+	commitMu    sync.Mutex
+	storage     *Storage
 }
 
 type Peer struct {
@@ -125,10 +128,11 @@ func (n *Node) SendHeartbeats() {
 			client := n.PeerClients[peer.ID]
 
 			go func(peer Peer) {
+				entries := ToProtoEntries(n.Log)
 				_, err := client.AppendEntries(context.Background(), &raft.AppendEntriesRequest{
 					Term:     n.Term,
 					LeaderId: n.ID,
-					Entries:  nil,
+					Entries:  entries,
 				})
 				if err != nil {
 					log.Printf("Error sending Heartbeat to %s: %v", peer.ID, err)
@@ -157,21 +161,34 @@ func (n *Node) AppendCommand(command string) {
 		return
 	}
 
-	entry := raft.LogEntry{
+	entry := LogEntry{
 		Term:    n.Term,
 		Command: command,
 	}
 	n.Log = append(n.Log, entry)
 	n.persist()
 
+	newIndex := int64(len(n.Log) - 1)
+	entries := ToProtoEntries([]LogEntry{entry})
+	var replicated int32 = 1
+
 	for _, peer := range n.Peers {
 		go func(peer Peer) {
 			client := n.PeerClients[peer.ID]
 
+			prevIndex := newIndex - 1
+			var prevTerm int64 = 0
+			if prevIndex >= 0 {
+				prevTerm = n.Log[prevIndex].Term
+			}
+
 			req := &raft.AppendEntriesRequest{
-				Term:     n.Term,
-				LeaderId: n.ID,
-				Entries:  []*raft.LogEntry{&entry},
+				Term:         n.Term,
+				LeaderId:     n.ID,
+				PrevLogIndex: prevIndex,
+				PrevLogTerm:  prevTerm,
+				Entries:      entries,
+				LeaderCommit: n.CommitIndex,
 			}
 
 			resp, err := client.AppendEntries(context.Background(), req)
@@ -179,9 +196,33 @@ func (n *Node) AppendCommand(command string) {
 				log.Printf("Error appending command to %s: %v", peer.ID, err)
 			}
 
-			if !resp.Success {
+			if resp.Success {
+				count := atomic.AddInt32(&replicated, 1)
+				if count > int32(len(n.Peers)/2) {
+					n.commitMu.Lock()
+					if newIndex > n.CommitIndex {
+						n.CommitIndex = newIndex
+						n.commitMu.Unlock()
+						go n.applyLogEntries()
+					} else {
+						n.commitMu.Unlock()
+					}
+				}
+			} else {
 				log.Printf("Peer %s rejected AppendEntries", peer.ID)
 			}
 		}(peer)
+	}
+}
+
+func (n *Node) applyLogEntries() {
+	n.commitMu.Lock()
+	defer n.commitMu.Unlock()
+
+	for n.LastApplied < n.CommitIndex {
+		n.LastApplied++
+		entry := n.Log[n.LastApplied]
+
+		log.Printf("Node %s aplied Log Entry %d: %s", n.ID, n.LastApplied, entry.Command)
 	}
 }

@@ -1,7 +1,6 @@
 package node
 
 import (
-	"Rafting/raft"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,9 +8,9 @@ import (
 )
 
 type PersistenceState struct {
-	CurrentTerm int64           `json:"current_term"`
-	VotedFor    string          `json:"voted_for"`
-	Log         []raft.LogEntry `json:"log"`
+	CurrentTerm int64      `json:"current_term"`
+	VotedFor    string     `json:"voted_for"`
+	Log         []LogEntry `json:"log"`
 }
 
 type Storage struct {
@@ -41,7 +40,7 @@ func (s *Storage) LoadState() (*PersistenceState, error) {
 
 	data, err := os.ReadFile(s.path)
 	if os.IsNotExist(err) {
-		return &PersistenceState{0, "", []raft.LogEntry{}}, nil
+		return &PersistenceState{0, "", []LogEntry{}}, nil
 	}
 
 	if err != nil {
@@ -49,7 +48,7 @@ func (s *Storage) LoadState() (*PersistenceState, error) {
 	}
 
 	if len(data) == 0 {
-		return &PersistenceState{0, "", []raft.LogEntry{}}, nil
+		return &PersistenceState{0, "", []LogEntry{}}, nil
 	}
 
 	var state PersistenceState
