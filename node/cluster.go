@@ -4,6 +4,8 @@ import (
 	"Rafting/raft"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"time"
@@ -47,8 +49,18 @@ func LoadClusterConfig(configPath, selfId string) (*Node, error) {
 	self.State = "Follower"
 	self.VotedFor = ""
 	self.LastHeartbeat = time.Now()
-	self.ElectionTimeout = time.Duration(1+rand.Intn(5)) * time.Second
+	self.ElectionTimeout = time.Duration(5+rand.Intn(5)) * time.Second
 	self.PeerClients = make(map[string]raft.RaftServiceClient)
-	
+
+	self.storage = NewStorage(fmt.Sprintf("/data/state_%v.json", selfId))
+	log.Println("Created storage")
+	state, err := self.storage.LoadState()
+	if err != nil {
+		return nil, err
+	}
+	self.Term = state.CurrentTerm
+	self.VotedFor = state.VotedFor
+	self.Log = state.Log
+
 	return self, nil
 }

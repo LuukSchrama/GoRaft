@@ -25,6 +25,8 @@ type Node struct {
 	VotedFor        string
 	ElectionTimeout time.Duration
 	LastHeartbeat   time.Time
+
+	storage *Storage
 }
 
 type Peer struct {
@@ -56,6 +58,7 @@ func (n *Node) RunElectionTimer() {
 		time.Sleep(timeout)
 
 		if n.State == "Leader" {
+			n.AppendCommand(fmt.Sprintf("SET X=%d", time.Now().Unix()))
 			continue
 		}
 
@@ -131,6 +134,55 @@ func (n *Node) SendHeartbeats() {
 				}
 			}(peer)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (n *Node) persist() {
+	state := &PersistanceState{
+		CurrentTerm: n.Term,
+		VotedFor:    n.VotedFor,
+		Log:         n.Log,
+	}
+	err := n.storage.SaveState(state)
+	if err != nil {
+		log.Printf("Error persisting state: %v", err)
+	}
+}
+
+func (n *Node) AppendCommand(command string) {
+	if n.State != "Leader" {
+		log.Printf("Node %s is not a leader", n.ID)
+		return
+	}
+
+	n.Log = append(n.Log, command)
+	n.persist()
+
+	for _, peer := range n.Peers {
+		go func(peer Peer) {
+			client := n.PeerClients[peer.ID]
+
+			entries := []*raft.LogEntry{}
+			for _, cmd := range n.Log {
+				entries = append(entries, &raft.LogEntry{
+					Term:    n.Term,
+					Command: cmd,
+				})
+			}
+
+			resp, err := client.AppendEntries(context.Background(), &raft.AppendEntriesRequest{
+				Term:     n.Term,
+				LeaderId: n.ID,
+				Entries:  entries,
+			})
+			if err != nil {
+				log.Printf("Error appending command to %s: %v", peer.ID, err)
+			}
+
+			if !resp.Success {
+				log.Printf("Peer %s rejected AppendEntries", peer.ID)
+			}
+		}(peer)
 	}
 }

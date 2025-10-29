@@ -62,7 +62,9 @@ func (r *RaftService) RequestVote(ctx context.Context, req *raft.VoteRequest) (*
 }
 
 func (r *RaftService) AppendEntries(ctx context.Context, req *raft.AppendEntriesRequest) (*raft.AppendEntriesResponse, error) {
-	if req.Term < r.node.Term {
+	n := r.node
+
+	if req.Term < n.Term {
 		return &raft.AppendEntriesResponse{Term: r.node.Term, Success: false}, nil
 	}
 
@@ -70,11 +72,15 @@ func (r *RaftService) AppendEntries(ctx context.Context, req *raft.AppendEntries
 	r.node.State = "Follower"
 	r.node.LastHeartbeat = time.Now()
 
-	if len(req.Entries) == 0 {
-		log.Printf("Node %s received heartbeat from %s (term %d)", r.node.ID, req.LeaderId, req.Term)
-		return &raft.AppendEntriesResponse{Term: r.node.Term, Success: true}, nil
+	if len(req.Entries) > 0 {
+		for _, entry := range req.Entries {
+			log.Printf("Node %s appending entry from Leader: %s: %s", n.ID, req.LeaderId, entry.Command)
+			n.Log = append(n.Log, entry.Command)
+		}
+		n.persist()
+	} else {
+		log.Printf("Node %s recieved heartbeat from Leader: %s (term %d)", n.ID, req.LeaderId, req.Term)
 	}
 
-	log.Printf("Node %s appending %d entries from leader %s", r.node.ID, len(req.Entries), req.LeaderId)
-	return &raft.AppendEntriesResponse{Term: r.node.Term, Success: true}, nil
+	return &raft.AppendEntriesResponse{Term: n.Term, Success: true}, nil
 }
