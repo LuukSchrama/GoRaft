@@ -17,7 +17,7 @@ type Node struct {
 	ID          string
 	Address     string
 	Term        int64
-	Log         []string
+	Log         []raft.LogEntry
 	Peers       []Peer
 	PeerClients map[string]raft.RaftServiceClient
 
@@ -58,7 +58,8 @@ func (n *Node) RunElectionTimer() {
 		time.Sleep(timeout)
 
 		if n.State == "Leader" {
-			n.AppendCommand(fmt.Sprintf("SET X=%d", time.Now().Unix()))
+			command := fmt.Sprintf("SET X=%d", time.Now().Unix())
+			n.AppendCommand(command)
 			continue
 		}
 
@@ -139,7 +140,7 @@ func (n *Node) SendHeartbeats() {
 }
 
 func (n *Node) persist() {
-	state := &PersistanceState{
+	state := &PersistenceState{
 		CurrentTerm: n.Term,
 		VotedFor:    n.VotedFor,
 		Log:         n.Log,
@@ -156,26 +157,24 @@ func (n *Node) AppendCommand(command string) {
 		return
 	}
 
-	n.Log = append(n.Log, command)
+	entry := raft.LogEntry{
+		Term:    n.Term,
+		Command: command,
+	}
+	n.Log = append(n.Log, entry)
 	n.persist()
 
 	for _, peer := range n.Peers {
 		go func(peer Peer) {
 			client := n.PeerClients[peer.ID]
 
-			entries := []*raft.LogEntry{}
-			for _, cmd := range n.Log {
-				entries = append(entries, &raft.LogEntry{
-					Term:    n.Term,
-					Command: cmd,
-				})
-			}
-
-			resp, err := client.AppendEntries(context.Background(), &raft.AppendEntriesRequest{
+			req := &raft.AppendEntriesRequest{
 				Term:     n.Term,
 				LeaderId: n.ID,
-				Entries:  entries,
-			})
+				Entries:  []*raft.LogEntry{&entry},
+			}
+
+			resp, err := client.AppendEntries(context.Background(), req)
 			if err != nil {
 				log.Printf("Error appending command to %s: %v", peer.ID, err)
 			}

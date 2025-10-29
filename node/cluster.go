@@ -34,7 +34,7 @@ func LoadClusterConfig(configPath, selfId string) (*Node, error) {
 				ID:      n.ID,
 				Address: n.Address,
 				Term:    0,
-				Log:     []string{},
+				Log:     []raft.LogEntry{},
 			}
 		} else {
 			peers = append(peers, n)

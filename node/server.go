@@ -75,7 +75,10 @@ func (r *RaftService) AppendEntries(ctx context.Context, req *raft.AppendEntries
 	if len(req.Entries) > 0 {
 		for _, entry := range req.Entries {
 			log.Printf("Node %s appending entry from Leader: %s: %s", n.ID, req.LeaderId, entry.Command)
-			n.Log = append(n.Log, entry.Command)
+			n.Log = append(n.Log, raft.LogEntry{
+				Term:    entry.Term,
+				Command: entry.Command,
+			})
 		}
 		n.persist()
 	} else {
