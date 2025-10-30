@@ -10,6 +10,7 @@ import (
 func main() {
 	nodeID := os.Args[1]
 	configPath := os.Args[2]
+	httpPort := 8080
 
 	n, err := node.LoadClusterConfig(configPath, nodeID)
 	if err != nil {
@@ -22,6 +23,8 @@ func main() {
 		}
 	}()
 	log.Printf("Starting node %s", nodeID)
+
+	go n.StartKVHTTPServer(httpPort)
 
 	time.Sleep(5 * time.Second)
 

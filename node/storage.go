@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -58,4 +60,63 @@ func (s *Storage) LoadState() (*PersistenceState, error) {
 	}
 
 	return &state, nil
+}
+
+func (s *Storage) SaveKV(kv *KVStore) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	data, err := json.MarshalIndent(kv, "", "	")
+	if err != nil {
+		return fmt.Errorf("error marshaling kv: %v", err)
+	}
+
+	kvPath := s.GetKVPath()
+	tmpPath := fmt.Sprintf("%s.tmp", kvPath)
+	err = os.WriteFile(tmpPath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing kv temp file: %v", err)
+	}
+	err = os.Rename(tmpPath, kvPath)
+	if err != nil {
+		return fmt.Errorf("error renaming kv file: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) LoadKV(kv *KVStore) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	kvPath := s.GetKVPath()
+	data, err := os.ReadFile(kvPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("error reading kv file: %v", err)
+	}
+
+	var tmp KVStore
+	err = json.Unmarshal(data, &tmp)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling kv store: %v", err)
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	kv.Data = tmp.Data
+
+	return nil
+}
+
+func (s *Storage) GetKVPath() string {
+	base := filepath.Base(s.path)
+	nodeID := strings.TrimSuffix(base, filepath.Ext(base))
+	nodeID = strings.TrimPrefix(nodeID, "state_")
+
+	dir := filepath.Dir(s.path)
+	kvPath := filepath.Join(dir, fmt.Sprintf("kv_%s.json", nodeID))
+	return kvPath
 }

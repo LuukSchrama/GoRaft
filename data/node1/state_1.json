@@ -1,6 +1,6 @@
 {
-	"current_term": 2,
-	"voted_for": "1",
+	"current_term": 10,
+	"voted_for": "3",
 	"log": [
 		{
 			"term": 1,
@@ -21,6 +21,154 @@
 		{
 			"term": 2,
 			"command": "SET X=1761747720"
+		},
+		{
+			"term": 3,
+			"command": "SET X=1761822685"
+		},
+		{
+			"term": 3,
+			"command": "SET X=1761822691"
+		},
+		{
+			"term": 3,
+			"command": "SET X=1761822696"
+		},
+		{
+			"term": 3,
+			"command": "SET X=1761822702"
+		},
+		{
+			"term": 3,
+			"command": "SET X=1761822708"
+		},
+		{
+			"term": 4,
+			"command": "SET X=1761822770"
+		},
+		{
+			"term": 4,
+			"command": "SET X=1761822775"
+		},
+		{
+			"term": 4,
+			"command": "SET X=1761822781"
+		},
+		{
+			"term": 5,
+			"command": "SET X=1761822859"
+		},
+		{
+			"term": 5,
+			"command": "SET X=1761822865"
+		},
+		{
+			"term": 5,
+			"command": "SET X=1761822870"
+		},
+		{
+			"term": 5,
+			"command": "SET X=1761822876"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825479"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825499"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825519"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825539"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825559"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825580"
+		},
+		{
+			"term": 6,
+			"command": "SET X=1761825600"
+		},
+		{
+			"term": 7,
+			"command": "SET X=1761826076"
+		},
+		{
+			"term": 7,
+			"command": "SET X=1761826099"
+		},
+		{
+			"term": 7,
+			"command": "SET X=1761826122"
+		},
+		{
+			"term": 7,
+			"command": "SET X=1761826144"
+		},
+		{
+			"term": 7,
+			"command": "SET X=1761826167"
+		},
+		{
+			"term": 8,
+			"command": "SET X=1761826249"
+		},
+		{
+			"term": 8,
+			"command": "SET foo=bar"
+		},
+		{
+			"term": 8,
+			"command": "SET X=1761826270"
+		},
+		{
+			"term": 8,
+			"command": "SET X=1761826290"
+		},
+		{
+			"term": 8,
+			"command": "SET jane=doe"
+		},
+		{
+			"term": 8,
+			"command": "SET X=1761826311"
+		},
+		{
+			"term": 9,
+			"command": "SET X=1761826727"
+		},
+		{
+			"term": 9,
+			"command": "SET X=1761826749"
+		},
+		{
+			"term": 9,
+			"command": "SET X=1761826771"
+		},
+		{
+			"term": 10,
+			"command": "SET X=1761826836"
+		},
+		{
+			"term": 10,
+			"command": "SET X=1761826857"
+		},
+		{
+			"term": 10,
+			"command": "SET X=1761826878"
+		},
+		{
+			"term": 10,
+			"command": "SET X=1761826898"
 		}
 	]
 }

@@ -30,6 +30,8 @@ type Node struct {
 	LastApplied int64
 	commitMu    sync.Mutex
 	storage     *Storage
+
+	KV *KVStore
 }
 
 type Peer struct {
@@ -139,7 +141,7 @@ func (n *Node) SendHeartbeats() {
 				}
 			}(peer)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
@@ -224,5 +226,17 @@ func (n *Node) applyLogEntries() {
 		entry := n.Log[n.LastApplied]
 
 		log.Printf("Node %s aplied Log Entry %d: %s", n.ID, n.LastApplied, entry.Command)
+
+		if n.KV != nil {
+			err := n.KV.Apply(entry.Command)
+			if err != nil {
+				log.Printf("Node %s failed to apply command to %s: %v", n.ID, entry.Command, err)
+			} else {
+				err = n.storage.SaveKV(n.KV)
+				if err != nil {
+					log.Printf("Node %s failed to save KV: %v", n.ID, err)
+				}
+			}
+		}
 	}
 }

@@ -19,3 +19,15 @@ GRPC localhost:50001/raft.RaftService/AppendEntries
   "entries": [],
   "leader_commit": 0
 }
+
+
+### Post KV
+POST http://localhost:8081/kv
+Content-Type: application/json
+
+{
+  "command": "SET jane=doe"
+}
+
+### Get KV
+POST http://localhost:8081/kv/jane
