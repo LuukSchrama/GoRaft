@@ -22,7 +22,7 @@ GRPC localhost:50001/raft.RaftService/AppendEntries
 
 
 ### Post KV
-POST http://localhost:8081/kv
+POST http://localhost:8083/kv
 Content-Type: application/json
 
 {

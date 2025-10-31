@@ -1,0 +1,14 @@
+{
+	"current_term": 1,
+	"voted_for": "3",
+	"log": [
+		{
+			"term": 1,
+			"command": "SET jane=doe"
+		},
+		{
+			"term": 1,
+			"command": "SET jane=doe"
+		}
+	]
+}

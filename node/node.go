@@ -3,7 +3,6 @@ package node
 import (
 	"Rafting/raft"
 	"context"
-	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
@@ -63,12 +62,6 @@ func (n *Node) RunElectionTimer() {
 	for {
 		timeout := n.ElectionTimeout + time.Duration(rand.Intn(2))*time.Second
 		time.Sleep(timeout)
-
-		if n.State == "Leader" {
-			command := fmt.Sprintf("SET X=%d", time.Now().Unix())
-			n.AppendCommand(command)
-			continue
-		}
 
 		if time.Since(n.LastHeartbeat) > timeout {
 			go n.StartElection()
