@@ -49,7 +49,7 @@ func LoadClusterConfig(configPath, selfId string) (*Node, error) {
 	self.State = "Follower"
 	self.VotedFor = ""
 	self.LastHeartbeat = time.Now()
-	self.ElectionTimeout = time.Duration(20+rand.Intn(10)) * time.Second
+	self.ElectionTimeout = time.Duration(5+rand.Intn(10)) * time.Second
 	self.PeerClients = make(map[string]raft.RaftServiceClient)
 
 	self.storage = NewStorage(fmt.Sprintf("/data/state_%v.json", selfId))

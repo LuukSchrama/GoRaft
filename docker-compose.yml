@@ -28,3 +28,23 @@ services:
       - "8083:8080"
     volumes:
       - "./data/node3:/data"
+
+  node4:
+    build: .
+    container_name: raft_node4
+    command: [ "./app/nodeApp", "4", "/node/config.json" ]
+    ports:
+      - "50004:50004"
+      - "8084:8080"
+    volumes:
+      - "./data/node4:/data"
+
+  node5:
+    build: .
+    container_name: raft_node5
+    command: [ "./app/nodeApp", "5", "/node/config.json" ]
+    ports:
+      - "50005:50005"
+      - "8085:8080"
+    volumes:
+      - "./data/node5:/data"

@@ -47,7 +47,9 @@ func (n *Node) ConnectToPeers() error {
 	for _, peer := range n.Peers {
 		conn, err := grpc.NewClient(peer.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			return fmt.Errorf("could not connect to peer %s: %w", peer.ID, err)
+			log.Printf("could not connect to peer %s: %w", peer.ID, err)
+			delete(n.PeerClients, peer.ID)
+			continue
 		}
 
 		client := raft.NewRaftServiceClient(conn)
@@ -84,6 +86,8 @@ func (n *Node) StartElection() {
 	n.Term += 1
 	n.VotedFor = n.ID
 
+	totalNodes := int32(len(n.Peers) + 1)
+	majority := totalNodes/2 + 1
 	var once sync.Once
 	var voteCount int32 = 1
 
@@ -98,21 +102,27 @@ func (n *Node) StartElection() {
 			})
 			if err != nil {
 				log.Printf("Error requesting vote from %s: %v", peer.ID, err)
+				return
+			} else if resp == nil {
+				return
+			}
+
+			if resp.Term > n.Term {
+				n.Term = resp.Term
+				n.State = "Follower"
+				n.VotedFor = ""
+				return
 			}
 
 			if resp.VoteGranted {
 				count := atomic.AddInt32(&voteCount, 1)
-				if count > int32(len(n.Peers)/2) {
+				if count > majority {
 					once.Do(func() {
 						if n.State == "Candidate" {
 							n.BecomeLeader()
 						}
 					})
 				}
-			} else if resp.Term > n.Term {
-				n.Term = resp.Term
-				n.State = "Follower"
-				n.VotedFor = ""
 			}
 		}(peer)
 	}
@@ -126,22 +136,42 @@ func (n *Node) BecomeLeader() {
 
 func (n *Node) SendHeartbeats() {
 	for n.State == "Leader" {
-		for _, peer := range n.Peers {
-			client := n.PeerClients[peer.ID]
+		// Gets term on leader
+		prevIndex := int64(len(n.Log) - 1)
+		var prevTerm int64 = 0
+		if prevIndex >= 0 {
+			prevTerm = n.Log[prevIndex].Term
+		}
 
+		for _, peer := range n.Peers {
 			go func(peer Peer) {
-				entries := ToProtoEntries(n.Log)
-				_, err := client.AppendEntries(context.Background(), &raft.AppendEntriesRequest{
-					Term:     n.Term,
-					LeaderId: n.ID,
-					Entries:  entries,
-				})
+				client := n.PeerClients[peer.ID]
+
+				// Heartbeat does not send entries
+				req := &raft.AppendEntriesRequest{
+					Term:         n.Term,
+					LeaderId:     n.ID,
+					PrevLogIndex: prevIndex,
+					PrevLogTerm:  prevTerm,
+					Entries:      []*raft.LogEntry{},
+					LeaderCommit: n.CommitIndex,
+				}
+				resp, err := client.AppendEntries(context.Background(), req)
 				if err != nil {
 					log.Printf("Error sending Heartbeat to %s: %v", peer.ID, err)
+					return
+				} else if resp == nil {
+					return
+				}
+
+				if resp.Term > n.Term {
+					n.Term = resp.Term
+					n.State = "Follower"
+					n.VotedFor = ""
 				}
 			}(peer)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -170,6 +200,9 @@ func (n *Node) AppendCommand(command string) {
 	n.Log = append(n.Log, entry)
 	n.persist()
 
+	totalNodes := int32(len(n.Peers) + 1)
+	majority := totalNodes/2 + 1
+
 	newIndex := int64(len(n.Log) - 1)
 	entries := ToProtoEntries([]LogEntry{entry})
 	var replicated int32 = 1
@@ -196,11 +229,21 @@ func (n *Node) AppendCommand(command string) {
 			resp, err := client.AppendEntries(context.Background(), req)
 			if err != nil {
 				log.Printf("Error appending command to %s: %v", peer.ID, err)
+				return
+			} else if resp == nil {
+				return
+			}
+
+			if resp.Term > n.Term {
+				n.Term = resp.Term
+				n.State = "Follower"
+				n.VotedFor = ""
+				return
 			}
 
 			if resp.Success {
 				count := atomic.AddInt32(&replicated, 1)
-				if count > int32(len(n.Peers)/2) {
+				if count > majority {
 					n.commitMu.Lock()
 					if newIndex > n.CommitIndex {
 						n.CommitIndex = newIndex
